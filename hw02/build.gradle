@@ -1,0 +1,24 @@
+plugins {
+    id 'java'
+}
+
+group 'hw02'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    maven {
+        name = 'cloudera'
+        url = 'https://repository.cloudera.com/artifactory/cloudera-repos'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.apache.hadoop:hadoop-common:2.6.0-cdh5.14.0'
+    compile 'org.apache.hadoop:hadoop-mapreduce-client-core:2.6.0-cdh5.14.0'
+//    testCompile group: 'junit', name: 'junit', version: '4.12'
+//    compile fileTree(dir: 'C:/Hadoop/hadoop-2.6.2/share/hadoop')
+//    compile fileTree(dir: 'C:/Hadoop/hadoop-2.6.2/share/hadoop/lib')
+}
