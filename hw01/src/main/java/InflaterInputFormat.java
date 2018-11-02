@@ -143,8 +143,6 @@ public class InflaterInputFormat extends FileInputFormat<LongWritable, Text> {
 
     @Override
     public RecordReader<LongWritable, Text> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException{
-        InflaterRecordReader inflaterRecordReader = new InflaterRecordReader();
-        inflaterRecordReader.initialize(split, context);
         return new InflaterRecordReader();
     }
 

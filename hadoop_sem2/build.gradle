@@ -1,0 +1,18 @@
+group = 'ru.mail.go'
+apply plugin: 'java'
+
+sourceCompatibility = 10.0
+targetCompatibility = 10.0
+
+repositories {
+    maven {
+        name = 'cloudera'
+        url = 'https://repository.cloudera.com/artifactory/cloudera-repos'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    compile fileTree(dir: 'C:/Hadoop/hadoop-2.6.2/share/hadoop')
+    compile fileTree(dir: 'C:/Hadoop/hadoop-2.6.2/share/hadoop/lib')
+}
