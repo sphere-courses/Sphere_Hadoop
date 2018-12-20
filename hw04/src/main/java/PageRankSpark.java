@@ -1,9 +1,14 @@
+import org.apache.spark.Accumulator;
+import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.util.DoubleAccumulator;
+import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+
+import static com.google.common.collect.Iterables.concat;
 
 public class PageRankSpark {
     public static void main(String[] args) {
@@ -11,75 +16,82 @@ public class PageRankSpark {
         final long nPages = 4847571;
         final double d = 0.85;
 
-        SparkSession spark = SparkSession
-                .builder()
-                .appName("PageRankSpark")
-                .config("spark.master", "local[*]")
-                .config("spark.sql.warehouse.dir", "file:///spark-warehouse")
-                .getOrCreate();
+        final SparkConf conf = new SparkConf()
+                .setAppName("PageRankSpark");
+        final JavaSparkContext spark = new JavaSparkContext(conf);
+        final int nExecutors = spark.getConf().getInt("spark.executor.instances", 20);
 
         JavaPairRDD<Long, Iterable<Long>> pageToPages = spark
-                .read()
                 .textFile(args[1])
-                .javaRDD()
+                .repartition(2 * nExecutors)
                 .filter(line -> !line.contains("#"))
                 .flatMapToPair(
                         line -> {
                             String[] value = line.split("\t");
-                            ArrayList <Tuple2<Long, Long>> edges = new ArrayList<>();
+                            ArrayList <Tuple2<Long, Iterable<Long>>> edges = new ArrayList<>();
                             long from = Long.parseLong(value[0]), to = Long.parseLong(value[1]);
-                            edges.add(new Tuple2<>(from, to));
-                            edges.add(new Tuple2<>(from, -1L));
-                            edges.add(new Tuple2<>(to, -1L));
+                            edges.add(new Tuple2<>(from, new ArrayList<>(Arrays.asList(to, -1L))));
+                            edges.add(new Tuple2<>(to, new ArrayList<>(Arrays.asList(-1L))));
 
-                            return edges.iterator();
+                            return edges;
                         })
-                .distinct()
-                .groupByKey()
+                .reduceByKey(
+                        (left, right) -> {
+                            HashSet<Long> result = new HashSet<>();
+                            for (Long val: concat(left, right)){
+                                result.add(val);
+                            }
+                            return new ArrayList<>(result);
+                        }
+                )
                 .cache();
 
         JavaPairRDD<Long, Double> pagesPR = pageToPages
                 .mapValues(value -> 1. / nPages);
 
-        DoubleAccumulator leakedPR = spark.sparkContext().doubleAccumulator();
-        DoubleAccumulator leakedPRNew = spark.sparkContext().doubleAccumulator();
+        Accumulator<Double> leakedPR = spark.accumulator(0.0, new DoubleAccumulatorSpark());
+        Accumulator<Double> leakedPRNew = spark.accumulator(0.0, new DoubleAccumulatorSpark());
 
         for(int i = 0; i < nIterations; ++i){
+            Double leakedPRValue = leakedPR.value();
             pagesPR = pageToPages
                     .cogroup(pagesPR)
                     .flatMapToPair(
                             page -> {
                                 long currentNPages = 0;
-                                ArrayList<Long> toIds = new ArrayList<>();
+                                double leakedPRLocal = 0.;
                                 ArrayList<Tuple2<Long, Double>> result = new ArrayList<>();
-                                for(Iterable<Long> iterable : page._2()._1()){
-                                    for(long to : iterable){
-                                        if(to != -1){
-                                            ++currentNPages;
-                                            toIds.add(to);
-                                        }
+                                for(Long to : page._2()._1().iterator().next()){
+                                    if(to != -1){
+                                        ++currentNPages;
                                     }
                                 }
 
-                                double currentPR = page._2()._2().iterator().next() + leakedPR.value() / nPages;
-                                if(toIds.size() == 0) {
-                                    leakedPRNew.add(currentPR);
+                                double currentPR = leakedPRValue / nPages;
+                                if(page._2()._2().iterator().hasNext()) {
+                                    currentPR += page._2()._2().iterator().next();
+                                }
+                                if(currentNPages == 0) {
+                                    leakedPRLocal += currentPR;
                                 } else {
-                                    for (Long to : toIds) {
-                                        result.add(new Tuple2<>(to, currentPR / currentNPages));
+                                    for(Long to : page._2()._1().iterator().next()){
+                                        if(to != -1){
+                                            result.add(new Tuple2<>(to, currentPR / currentNPages));
+                                        }
                                     }
                                 }
-                                result.add(new Tuple2<>(page._1(), 0.));
-                                return result.iterator();
+                                leakedPRNew.add(leakedPRLocal);
+                                return result;
                             }
                     )
                     .reduceByKey((a, b) -> a + b)
                     .mapValues(a -> (1 - d) / nPages + d * a);
             leakedPR.setValue(leakedPRNew.value());
-            leakedPRNew.reset();
+            leakedPRNew.setValue(0.);
         }
+        Double leakedPRValue = leakedPR.value();
         pagesPR
-                .mapValues(a -> a + leakedPR.value() / nPages)
+                .mapValues(a -> a + leakedPRValue / nPages)
                 .mapToPair(Tuple2::swap)
                 .sortByKey(false)
                 .saveAsTextFile(args[2]);
