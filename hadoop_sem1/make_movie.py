@@ -33,7 +33,7 @@ class FFMpegOutputWriter:
 
 def convert2video():
     if len(sys.argv) < 2:
-        print 'Usage: %s mapper-output-files' % sys.argv[0]
+        print('Usage: %s mapper-output-files' % sys.argv[0])
         sys.exit(64)
 
     writer = FFMpegOutputWriter()

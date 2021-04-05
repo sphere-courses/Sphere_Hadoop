@@ -1,12 +1,8 @@
-plugins {
-    id 'java'
-}
+group = 'ru.mail.go'
+apply plugin: 'java'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
-
-group 'hw04'
-version '1.0-SNAPSHOT'
 
 repositories {
     maven {
@@ -17,9 +13,8 @@ repositories {
 }
 
 dependencies {
-//    compile fileTree(dir: 'C:/Hadoop/hadoop-2.6.2/share/hadoop')
-//    compile fileTree(dir: 'C:/Hadoop/hadoop-2.6.2/share/hadoop/lib')
-	
     compile 'org.apache.hadoop:hadoop-common:2.6.0-cdh5.14.0'
-    compile 'org.apache.spark:spark-core_2.10:1.6.0'
+    compile 'org.apache.hadoop:hadoop-mapreduce-client-core:2.6.0-cdh5.14.0'
+    compile 'org.apache.hbase:hbase-client:1.2.0-cdh5.14.0'
+    compile 'org.apache.hbase:hbase-server:1.2.0-cdh5.14.0'
 }

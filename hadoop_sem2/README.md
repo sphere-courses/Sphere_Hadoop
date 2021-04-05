@@ -9,3 +9,5 @@
 
 # Визуализация
 Используйте полученный файл temps.kml в http://www.gpsvisualizer.com/
+
+* Sourced from https://github.com/dkrotx/hadoop_sem2

@@ -3,4 +3,6 @@
 build/
 *.iml
 *~
-lectures/
+temps.csv
+temps.kml
+/output
